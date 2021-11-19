@@ -25,64 +25,9 @@ How did we do it? We begin with the aforementioned dataset of tweets from South 
 
 We will begin with the basic necessary EDA.
 
-
-```python
-# import necessary packages
-import pandas as pd 
-import numpy as np
-import matplotlib.pyplot as plt
-%matplotlib inline
-pd.set_option('display.max_colwidth', -1)
-
-import string
-import re
-
-from sklearn.feature_extraction.text import CountVectorizer
-
-import nltk
-nltk.download('wordnet')
-```
-
-    <ipython-input-142-c09b5d635a8c>:6: FutureWarning: Passing a negative integer is deprecated in version 1.0 and will not be supported in future version. Instead, use None to not limit the column width.
-      pd.set_option('display.max_colwidth', -1)
-    [nltk_data] Downloading package wordnet to
-    [nltk_data]     /Users/westonnewcomb/nltk_data...
-    [nltk_data]   Package wordnet is already up-to-date!
-
-
-
-
-
-    True
-
-
-
 Let's take a look at what we're working with!
 
-
-```python
-# load data in as pandas DataFrame object
-df = pd.read_csv('data/data.csv', encoding='unicode_escape')
-df.head()
-```
-
-
-
-
 <div>
-<style scoped>
-    .dataframe tbody tr th:only-of-type {
-        vertical-align: middle;
-    }
-
-    .dataframe tbody tr th {
-        vertical-align: top;
-    }
-
-    .dataframe thead th {
-        text-align: right;
-    }
-</style>
 <table border="1" class="dataframe">
   <thead>
     <tr style="text-align: right;">
@@ -131,22 +76,7 @@ df.head()
 
 Our data appears to consist of three columns, each relatively simple to understand. Our first data is a tweet, followed by the product at which the tweet is directed, and finally the sentiment of that tweet. 
 
-Before we go any further, let's go ahead and rename the columns for the sake of simplicity. 
-
-
-```python
-# rename columns for simplicity
-columns_dict = {'tweet_text':'tweet',
-                'emotion_in_tweet_is_directed_at':'product',
-                'is_there_an_emotion_directed_at_a_brand_or_product':'emotion_response'}
-
-df = df.rename(columns=columns_dict)
-```
-
-
-```python
-df.info()
-```
+Before we go any further, let's go ahead and rename the columns for the sake of simplicity, and take a look at the sparsity of our dataset. 
 
     <class 'pandas.core.frame.DataFrame'>
     RangeIndex: 9093 entries, 0 to 9092
@@ -163,13 +93,6 @@ df.info()
 Apparently we are missing some values...
 
 
-```python
-df.isna().sum()
-```
-
-
-
-
     tweet               1   
     product             5802
     emotion_response    0   
@@ -180,27 +103,7 @@ df.isna().sum()
 Before we deal with this nightmare of a situation with the product column, let's take a look at the null-valued tweet.
 
 
-```python
-df[df['tweet'].isna()]
-```
-
-
-
-
 <div>
-<style scoped>
-    .dataframe tbody tr th:only-of-type {
-        vertical-align: middle;
-    }
-
-    .dataframe tbody tr th {
-        vertical-align: top;
-    }
-
-    .dataframe thead th {
-        text-align: right;
-    }
-</style>
 <table border="1" class="dataframe">
   <thead>
     <tr style="text-align: right;">
@@ -225,19 +128,7 @@ df[df['tweet'].isna()]
 
 This appears likely to be a data input error. We can drop that row from the dataset. 
 
-
-```python
-df = df.dropna(subset=['tweet'])
-```
-
 Shall we take a look at the product column next?
-
-
-```python
-df['product'].value_counts()
-```
-
-
 
 
     iPad                               946
@@ -251,15 +142,7 @@ df['product'].value_counts()
     Other Apple product or service     35 
     Name: product, dtype: int64
 
-
-
-
-```python
-df['product'].isna().mean()
-```
-
-
-
+Let's see how many entries are missing values.
 
     0.6380334359876815
 
@@ -267,43 +150,7 @@ df['product'].isna().mean()
 
 It appears as though we are do not have much information about the products - we're missing values in nearly two-thirds of the rows in the 'product' column. Perhaps this is a mistake in the dataset. In order to circumvent this issue, let's fill in the values if the tweet contains words indicative of the company involved. Additionally, we are not particularly concerned with particular products as opposed to their respective companies. 
 
-
-```python
-apple_words = ['iphone', 'ipad', 'apple']
-google_words = ['google', 'android']
-```
-
-
-```python
-def brand_classifier(tweet):
-    
-    tweet = tweet.lower()
-    
-    google = any(g in tweet for g in google_words)
-    apple = any(a in tweet for a in apple_words)
-    
-    if (apple & google):
-        return 'both'
-    elif apple:
-        return 'apple'
-    elif google:
-        return 'google'
-    else:
-        return 'neither'
-```
-
-
-```python
-df['company'] = df['tweet'].map(lambda x: brand_classifier(x))
-```
-
-
-```python
-df['company'].value_counts()
-```
-
-
-
+Here's what we get after applying our classifier method. 
 
     apple      5275
     google     2781
@@ -315,14 +162,6 @@ df['company'].value_counts()
 
 Wow - significantly better. Let's take a closer look at our emotions column now.
 
-
-```python
-df['emotion_response'].value_counts()
-```
-
-
-
-
     No emotion toward brand or product    5388
     Positive emotion                      2978
     Negative emotion                      570 
@@ -330,184 +169,34 @@ df['emotion_response'].value_counts()
     Name: emotion_response, dtype: int64
 
 
-
 First, we should drop those values which contain "I can't tell" values because we cannot truly know what the emotion is. To reiterate, the response "I can't tell" corresponds to an event in which the group of people classifying the tweet voted in an even split. 
 
 
-```python
-df = df[df['emotion_response'] != 'I can\'t tell']
-```
-
 Since we are only interested in classifying negative vs. non-negative, let's reframe our data so that it only contains information about whether the tweet has negative sentiment or not. 
 
-
-```python
-emotions_dict = {'Positive emotion':0,
-                 'No emotion toward brand or product':0,
-                 'Negative emotion':1}
-
-df['sentiment'] = df['emotion_response'].replace(emotions_dict)
-```
-
-#### look into i cant tell columns
-
-
-```python
-df.info()
-```
-
-    <class 'pandas.core.frame.DataFrame'>
-    Int64Index: 8936 entries, 0 to 9092
-    Data columns (total 5 columns):
-     #   Column            Non-Null Count  Dtype 
-    ---  ------            --------------  ----- 
-     0   tweet             8936 non-null   object
-     1   product           3282 non-null   object
-     2   emotion_response  8936 non-null   object
-     3   company           8936 non-null   object
-     4   sentiment         8936 non-null   int64 
-    dtypes: int64(1), object(4)
-    memory usage: 418.9+ KB
-
-
-
-```python
-df['sentiment'].value_counts()
-```
-
-
-
+Let's inspect, because this is our target column. Are we dealing with a case of class imbalance?
 
     0    8366
     1    570 
     Name: sentiment, dtype: int64
 
 
-
-
-```python
-df['sentiment'].mean()
-```
-
-
-
-
-    0.06378692927484333
-
-
-
 So we are most certainly dealing with a case of class imbalance, which means almost definitely that we will need to upsample or downsample our data. Also, we should definitely be evaluating our models based on a metric different than accuracy. In the mean time, we'll drop the columns that are not necessary for our purposes.
 
 
-```python
-df = df.drop(['product', 'emotion_response'], axis=1)
-```
-
-For our final preprocessing step, it is necessary to clean the tweet of all unnecessary characters. We will use this function later on in a pipeline, so that we can scale for deployment later more efficiently. 
-
-
-```python
-def tweet_cleaner(tweet):
-    twtr_stopwords = ['rt','rts','retweet','quot','sxsw', 'amp']
-    punctuation = set(string.punctuation)
-    punctuation.remove('#')
-    
-    x = tweet
-    x = re.sub(r'https?:\/\/\S+', '', x) #remove URLs
-    x = re.sub(r'{link}', '', x) #placeholders
-    x = re.sub(r'@[\w]*', '', x) #@mention users
-    x = re.sub('[^A-Za-z0-9]+', ' ', x) #@mention users
-    x = re.sub(r'\b[0-9]+\b', '', x) #remove stand-alone numbers
-    x = re.sub(r'&[a-z]+;', '', x) #remove HTML ref chars
-    x = re.sub(r'\d+', '', x) #removes all NUMERALS
-    x = ''.join(ch for ch in x if ch not in punctuation) #remove punctuation
-    x = x.replace("[^a-zA-z]#", " ") #remove special chars
-    
-    x = [word.lower() for word in x.split() if word.lower() not in twtr_stopwords]
-    x = [w for w in x if len(w)>2]
-    
-    lemmatizer = nltk.stem.WordNetLemmatizer()
-    
-    x = [lemmatizer.lemmatize(token) for token in x]
-    
-    return x
-```
-
 ## Modeling
 
-We will start the modeling process by, like always, breaking our data into train and test sets.
-
-
-```python
-# import necessary outside modules for modeling purposes
-from sklearn.model_selection import train_test_split
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.naive_bayes import GaussianNB
-from sklearn.tree import DecisionTreeClassifier
-from sklearn.model_selection import GridSearchCV
-from sklearn.metrics import confusion_matrix
-from sklearn.metrics import plot_confusion_matrix
-from sklearn.model_selection import RepeatedStratifiedKFold
-from sklearn.pipeline import Pipeline
-from sklearn.model_selection import cross_validate
-from sklearn.metrics import classification_report
-from imblearn.over_sampling import SMOTE
-from imblearn import pipeline
-from xgboost import XGBClassifier
-```
-
-
-```python
-# split full DataFrame into train and test sets
-X = df['tweet']
-y = df['sentiment']
-
-X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=42, stratify=y)
-```
-
-Additionally, let's go ahead and create a function for evaluation model performance. 
-
-
-```python
-def eval_model(model, X_train, X_test, y_train, y_test):
-    
-    model.fit(X_train, y_train)
-    y_pred = model.predict(X_test)
-    
-    plot_confusion_matrix(model, X_test, y_test)
-    print(classification_report(y_test, y_pred))
-```
+We will start the modeling process by, like always, breaking our data into train and test sets. Additionally, since we are more concerned with accurately identifying negative tweets than pure accuracy overall, we will use recall as our select evaluatioon metric.
 
 ### Baseline
 
-We'll start our moedling process by establishing a baseline with a Decision Tree model from sklearn. 
-
-
-```python
-dt_pipe = pipeline.Pipeline(steps=[('pre',CountVectorizer(lowercase=False,
-                                                                tokenizer=tweet_cleaner)),
-                                         ('smote', SMOTE(random_state=42, sampling_strategy='minority')),
-                                         ('dt', DecisionTreeClassifier(random_state=42))])
-
-dt_cv = cross_validate(estimator=dt_pipe, X=X_train, y=y_train,
-                       scoring='recall', cv=5, n_jobs=-1)
-
-dt_cv
-```
-
-
+We'll start our moedling process by establishing a baseline with a Decision Tree model from sklearn.
 
 
     {'fit_time': array([0.88397217, 0.85496998, 0.87282681, 0.86352277, 1.91616011]),
      'score_time': array([0.12428594, 0.12380195, 0.124403  , 0.12416005, 0.10367393]),
      'test_score': array([0.54117647, 0.37209302, 0.39534884, 0.43023256, 0.29411765])}
 
-
-
-
-```python
-eval_model(dt_pipe, X_train, X_test, y_train, y_test)
-```
 
                   precision    recall  f1-score   support
     
@@ -517,9 +206,6 @@ eval_model(dt_pipe, X_train, X_test, y_train, y_test)
         accuracy                           0.84      2273
        macro avg       0.56      0.63      0.57      2273
     weighted avg       0.91      0.84      0.87      2273
-    
-
-
 
 ![png](images/cm_dt1.png)
 
@@ -527,32 +213,11 @@ eval_model(dt_pipe, X_train, X_test, y_train, y_test)
 As we may have expected, our baseline accuracy is relatively high while our precision and recall are both somewhat low for our target. But this model is most likely disastrously overfitting also - so we need to be careful. However, we have established that we can - to some degree of proficiency - determine the sentiment of a tweet! Let's adjust some of the parameters and see if we can imporve off of our baseline. 
 
 
-```python
-dt_pipe_2 = pipeline.Pipeline(steps=[('pre',CountVectorizer(lowercase=False,
-                                                                tokenizer=tweet_cleaner)),
-                                         ('smote', SMOTE(random_state=42, sampling_strategy='minority')),
-                                         ('dt', DecisionTreeClassifier(class_weight={0:100, 1:1},
-                                                                       random_state=42))])
-
-dt_cv = cross_validate(estimator=dt_pipe_2, X=X_train, y=y_train,
-                       scoring='recall', cv=5, n_jobs=-1)
-
-dt_cv
-```
-
-
-
 
     {'fit_time': array([1.16735983, 1.17789888, 1.17913699, 1.19119716, 1.2029078 ]),
      'score_time': array([0.14501619, 0.14370012, 0.13922524, 0.13836288, 0.12935233]),
      'test_score': array([0.55294118, 0.45348837, 0.41860465, 0.53488372, 0.42352941])}
 
-
-
-
-```python
-eval_model(dt_pipe_2, X_train, X_test, y_train, y_test)
-```
 
                   precision    recall  f1-score   support
     
@@ -574,34 +239,11 @@ Our recall is significantly improved. Since we are willing to sacrifice accuracy
 ### Random Forest
 
 
-```python
-rf_pipe = pipeline.Pipeline(steps=[('pre', CountVectorizer(lowercase=False, 
-                                                           tokenizer=tweet_cleaner,
-                                                           max_features=100)),
-                                   ('smote', SMOTE(random_state=42)),
-                                   ('rf', RandomForestClassifier(random_state=42, 
-                                                                 class_weight={0:1,
-                                                                               1:10}))])
-
-rf_cv = cross_validate(estimator=rf_pipe, X=X_train, y=y_train, 
-                       scoring='recall', cv=5, n_jobs=-1)
-
-rf_cv
-```
-
-
-
-
     {'fit_time': array([3.43784714, 3.34204912, 3.43404889, 3.42933679, 3.3979671 ]),
      'score_time': array([0.16742086, 0.16254091, 0.16220403, 0.15989232, 0.15930796]),
      'test_score': array([0.37647059, 0.34883721, 0.29069767, 0.38372093, 0.32941176])}
 
 
-
-
-```python
-eval_model(rf_pipe, X_train, X_test, y_train, y_test)
-```
 
                   precision    recall  f1-score   support
     
@@ -622,38 +264,10 @@ Not as good as we might have hoped, although our RF is probably not overfitting 
 
 ### XGBoost
 
-
-```python
-x = XGBClassifier
-```
-
-
-```python
-xgb_pipe = pipeline.Pipeline(steps=[('pre', CountVectorizer(lowercase=False, 
-                                                           tokenizer=tweet_cleaner,
-                                                           max_features=100)),
-                                   ('smote', SMOTE(random_state=42)),
-                                   ('xgb', XGBClassifier())])
-
-xgb_cv = cross_validate(estimator=xgb_pipe, X=X_train, y=y_train, 
-                       scoring='recall', cv=5, n_jobs=-1)
-
-xgb_cv
-```
-
-
-
-
     {'fit_time': array([2.80946183, 2.82124209, 2.82116985, 2.80832982, 2.8033669 ]),
      'score_time': array([0.13659024, 0.12957978, 0.13020325, 0.13036203, 0.12808299]),
      'test_score': array([0.16470588, 0.08139535, 0.09302326, 0.11627907, 0.12941176])}
 
-
-
-
-```python
-eval_model(xgb_pipe, X_train, X_test, y_train, y_test)
-```
 
                   precision    recall  f1-score   support
     
