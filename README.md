@@ -521,7 +521,7 @@ eval_model(dt_pipe, X_train, X_test, y_train, y_test)
 
 
 
-![png](images.cm_dt1.png)
+![png](images/cm_dt1.png)
 
 
 As we may have expected, our baseline accuracy is relatively high while our precision and recall are both somewhat low for our target. But this model is most likely disastrously overfitting also - so we need to be careful. However, we have established that we can - to some degree of proficiency - determine the sentiment of a tweet! Let's adjust some of the parameters and see if we can imporve off of our baseline. 
