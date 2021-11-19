@@ -521,7 +521,7 @@ eval_model(dt_pipe, X_train, X_test, y_train, y_test)
 
 
 
-![png](output_56_1.png)
+![png](images.cm_dt1.png)
 
 
 As we may have expected, our baseline accuracy is relatively high while our precision and recall are both somewhat low for our target. But this model is most likely disastrously overfitting also - so we need to be careful. However, we have established that we can - to some degree of proficiency - determine the sentiment of a tweet! Let's adjust some of the parameters and see if we can imporve off of our baseline. 
@@ -566,7 +566,7 @@ eval_model(dt_pipe_2, X_train, X_test, y_train, y_test)
 
 
 
-![png](output_59_1.png)
+![png](images/cm_dt2.png)
 
 
 Our recall is significantly improved. Since we are willing to sacrifice accuracy and precision for recall, we can say that we have improved on our original model. 
@@ -615,7 +615,7 @@ eval_model(rf_pipe, X_train, X_test, y_train, y_test)
 
 
 
-![png](output_63_1.png)
+![png](images/cm_rf.png)
 
 
 Not as good as we might have hoped, although our RF is probably not overfitting as much as our decision tree. 
@@ -667,7 +667,7 @@ eval_model(xgb_pipe, X_train, X_test, y_train, y_test)
 
 
 
-![png](output_68_1.png)
+![png](images/cm_xgb.png)
 
 
 ## Evaluation
